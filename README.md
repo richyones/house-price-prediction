@@ -14,11 +14,10 @@ This repository contains an analysis of house prices in the Ames housing market,
 - [Conclusions](#conclusions)
 - [Limitations](#limitations)
 - [Future Work](#future-work)
-- [License](#license)
 
 ## Project Overview
 
-This project explores the relationship between several housing characteristics and their impact on house prices. We aim to develop a regression model that can predict house prices in Ames, Iowa, based on features such as lot area, overall quality, indoor square footage, and kitchen quality.
+This project explores the relationship between several housing characteristics and their impact on house prices. The aim is to develop a regression model that can predict house prices in Ames, Iowa, based on features such as lot area, overall quality, indoor square footage, and kitchen quality.
 
 ## Dataset
 
@@ -75,11 +74,11 @@ To run this analysis on your local machine:
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/house-price-prediction-ames.git
+   git clone https://github.com/yourusername/house-price-prediction.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd house-price-prediction-ames
+   cd house-price-prediction
    ```
 3. Install the required dependencies (using R or Python, depending on your setup):
    ```bash
@@ -108,7 +107,3 @@ To run this analysis on your local machine:
 - Expand the dataset to include houses from other markets to test the generalizability of the model.
 - Include economic and financial variables (e.g., average time on the market, mortgage rates) to further improve the model’s predictive power.
 - Investigate more advanced machine learning techniques (e.g., random forest, gradient boosting) to potentially increase prediction accuracy.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
