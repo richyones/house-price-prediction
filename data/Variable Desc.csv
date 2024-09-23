@@ -1,0 +1,9 @@
+﻿VariableName,VariableType,DataType,DistType
+SalePrice,IV,Quant,Continuous
+LotArea,DV,Quant,Continuous
+OverallQual,DV,Quant,Discrete
+OverallCond,DV,Quant,Discrete
+InSF,DV,Quant,Continuous
+OutSF,DV,Quant,Continuous
+KitchenQual,DV,Qual,NA
+Kqual,DV,Quant,Discrete
