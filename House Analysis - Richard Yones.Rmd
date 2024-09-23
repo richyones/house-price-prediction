@@ -1,0 +1,202 @@
+---
+title: "House Price Analysis"
+author: "Richard Yones"
+date: "2023-02-23"
+output: html_document
+---
+# Ames Housing Data Analysis
+## Context and Dataset
+The Ames Housing dataset has entries of houses in the Ames housing market and their relevant information. Some of these pieces of information include classic housing information: sales price, amount of rooms, square footage, and build year.
+
+### Research Question
+In this report, I will try to find a model that accurately predicts sales price (SalePrice) based upon several variables found in the data. An astute data model would be useful in determining the most important characteristics to consider when trying to manage house pricing. 
+
+### Variables - Descriptive Statistics
+The dependent variable of interest is sales price (SalePrice). 
+
+The predictors that I plan to use are lot area (LotArea), overall quality (OverallQual), overall condition (OverallCond), indoor square footage (a sum of GrLivArea, GarageArea, TotalBsmtSF), outdoor square footage (sum of WoodDeckSF, OpenPorchSF, EnclosedPorch, 3SsnPorch, ScreenPorch, PoolArea), and Kitchen Quality (KitchenQual). I have modified the original table to only include the relevant pieces of information.
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+houses <- read_csv("~/Downloads/R1housingprices.csv")
+comp_house <- houses %>%
+  mutate(InSF = GrLivArea + GarageArea + TotalBsmtSF) %>%
+  mutate(OutSF = WoodDeckSF + OpenPorchSF + EnclosedPorch + SsnPorch + ScreenPorch + PoolArea) %>%
+  mutate(KQual = ifelse(KitchenQual %in% "Fa", 0, 
+                        ifelse(KitchenQual %in% "TA", 1,
+                               ifelse(KitchenQual %in% "Gd", 2,
+                                      ifelse(KitchenQual %in% "Ex", 3, 0))))) %>%
+  select(SalePrice, LotArea, OverallQual, OverallCond, InSF, OutSF, KitchenQual, KQual)
+
+head(comp_house)
+```
+*Note: KQual will be used in the regression in lieu of KitchenQual. I have converted KitchenQual into numeric data based on the scale. Fa, TA, Gd, Ex = 0, 1, 2, 3, respectively. Fa is the reference variable. *
+
+The following has characteristic information about each variable:
+```{r message=FALSE, warning=FALSE}
+variables <- read_csv("~/Downloads/VariableDesc.csv")
+variables
+```
+
+Statistical data on each quantitative variable is below:
+```{r message=FALSE, warning=FALSE}
+library(psych)
+stat_house <- comp_house %>%
+  select(!KitchenQual)
+  
+stat <- describe(stat_house) %>%
+  select(n, median, mean, sd)
+stat
+```
+In the data set, there are 1460 total observations
+
+## Descriptive Visualizations
+A series of plots are here to provide some visualization of the variables and how they each individually interact with SalePrice.
+```{r message=FALSE, warning=FALSE}
+library(ggpubr)
+comp_house$KitchenQual <- factor(comp_house$KitchenQual, levels = c("Fa", "TA", "Gd", "Ex"))
+
+ggarrange(
+ggplot(data = comp_house, mapping = aes(x = SalePrice)) +
+  geom_boxplot(),
+ggplot(data = comp_house, mapping = aes(x = KitchenQual)) +
+  geom_bar(fill = "blue")) +
+  coord_flip()
+```
+
+Looking at the boxplot, we see that the middle 50% of the data is consolidated into a smaller range when compared to the other quartiles. The bar graph shows that most houses have a good or average kitchen quality.
+
+```{r message=FALSE, warning=FALSE}
+ggarrange(
+ggplot(data = comp_house) + 
+  geom_point(mapping = aes(x = InSF, y = LotArea)) +
+  labs(title = "Lot Area vs. Inside SF"),
+ggplot(data = comp_house) + 
+  geom_point(mapping = aes(x = OutSF, y = LotArea)) +
+  labs(title = "Lot Area vs. Outside SF"))
+```
+
+These scatterplots display InSF and OutSF against Lot Area. As you can see, there are a handful of houses that look like outliers. These outliers represent relatively smaller houses on large plots of land. 
+
+```{r message=FALSE, warning=FALSE}
+test <- count(comp_house, OverallCond, OverallQual)
+
+ggarrange(ggplot(data = comp_house) +
+  geom_count(mapping = aes(x = OverallQual, y = OverallCond, color = KitchenQual)) +
+  labs(title = "Overall Quality vs. Overall Condition segmented by Kitchen Quality"))
+```
+
+This graph that pits OverallQual together with OverallCond is segmented by Kitchen Quality. Houses with a kitchen qual of "Ex" score in the higher reagions of both condition and quality. The inverse is true as well; lower quality kitchens are typically associated with houses of lower quality and condition. In general, the largest number of houses congregate around the middle scores. 
+
+## Hypotheses
+I believe that the variables chosen have a good chance of being significant predictors of SalePrice. House prices can be volatile and can depend on many conditions outside the house itself. That being said, I would expect that the very fundamental characteristics of a house (sq footage, overall perception/condition) would correlate significantly with its price.
+
+### F-Test - Null and alternative hypotheses
+
+* H0: There is **no** relationship between the independent variables (LotArea, OverallQual, OverallCond, InSF, OutSF, KitchenQual), and the dependent variable (SalePrice). 
+* HA: There is a **significant** relationship between the independent variables (LotArea, OverallQual, OverallCond, InSF, OutSF, KitchenQual), and the dependent variable (SalePrice).
+
+# Model Results
+## Individual Predictive Visualizations
+```{r message=FALSE, warning=FALSE}
+library(ggpubr)
+ggarrange(ggplot(comp_house, aes(LotArea, SalePrice)) +
+  geom_point() + 
+  geom_smooth(method = lm),
+
+ggplot(comp_house, aes(OverallQual, SalePrice)) +
+  geom_jitter() + 
+  geom_smooth(method = lm),
+
+ggplot(comp_house, aes(OverallCond, SalePrice)) +
+  geom_jitter() + 
+  geom_smooth(method = lm),
+
+ggplot(comp_house, aes(InSF, SalePrice)) +
+  geom_point() + 
+  geom_smooth(method = lm),
+
+ggplot(comp_house, aes(OutSF, SalePrice)) +
+  geom_point() + 
+  geom_smooth(method = lm),
+
+ggplot(comp_house, aes(KQual, SalePrice)) +
+  geom_jitter() + 
+  geom_smooth(method = lm))
+```
+## Correlation Coefficients
+Correlate to graphs reading left to right:
+```{r message=FALSE, warning=FALSE}
+
+cor(comp_house$LotArea, comp_house$SalePrice, method = c("pearson", "kendall", "spearman"))
+cor(comp_house$OverallQual, comp_house$SalePrice, method = c("pearson", "kendall", "spearman"))
+cor(comp_house$OverallCond, comp_house$SalePrice, method = c("pearson", "kendall", "spearman"))
+cor(comp_house$InSF, comp_house$SalePrice, method = c("pearson", "kendall", "spearman"))
+cor(comp_house$OutSF, comp_house$SalePrice, method = c("pearson", "kendall", "spearman"))
+cor(comp_house$KQual, comp_house$SalePrice, method = c("pearson", "kendall", "spearman"))
+```
+
+*Note: Jitter is added to the discrete variables to more easily see the trend line relationship.*
+**Observations**
+
+1. The outliers in LotArea seem to drag the trend line into a more flattened position
+2. The relationship that LotArea, OverallCond, and OutSF have with SalePrice seem much more randomized thans the others. (r = .264, -.078, .390)
+3. Looks like OverallQual and InSF have a much better individual relationship with SalePrice. (r = .791, .808)
+
+## Regression Model Results
+```{r message=FALSE, warning=FALSE}
+model <-lm(SalePrice ~ LotArea + OverallQual + OverallCond + InSF + OutSF + KQual, data = comp_house)
+summary(model)
+```
+
+Looking at the regression, the null hypothesis is **rejected.** With an F statistic of 848.4 and a p-value of < 0.05, there is a **significant relationship** between the independent variables (LotArea, OverallQual, OverallCond, InSF, OutSF, KitchenQual), and the dependent variable (SalePrice). The relationship between them is positive: an increase in any of the variables yields an increase in SalePrice.  The overall model explains **77.7%** of the variance in SalePrice, which means that this is a pretty effective model.
+
+
+```{r message=FALSE, warning=FALSE}
+par(mfrow=c(2,2))
+plot(model, which = c(1,2,3,4))
+```
+```{r message=FALSE, warning=FALSE}
+library(car)
+vif(model)
+```
+Looking at the diagnostic plots, the model is very healthy. There are a few outliers in the data, and the residuals are random. Looking at the VIF scores, none of the variables reach a value > 10, which suggests no multicollinearity. 
+
+# Conclusions
+## Results and Discussions
+Since the null hypothesis was rejected, my initial thoughts were correct: fundamental characteristics of a house are related to its value. The strength also supports the part of my hypothesis that there are outside influences of a house’s value that would help predict its value. The model only affects about 78% of the variation; the remainder variation could be due to these other variables. 
+
+This information could be used by large or individual realtors/investors alike. Using information from each independent variable, realtors would be able to reasonably predict what that house is worth. For “fixer-upper” projects, renovators in tandem with realtors would be able to know the main characteristics to spruce up the value of a house. Home buyers, assuming they could have access to this specific information, could make reasonable offers on houses without the fear of being completely ripped off. 
+
+## Prescriptive Reccomendations
+Businesses in the real estate sphere, specifically those in the Ames housing market, can use the model to optimally price houses on the market, either for buying or for selling.
+
+Losses on investments can be reduced, and increased profits become sustainable if real estate companies can learn how to leverage this model to the best of their ability. Companies won’t over pay for properties that are lackluster, increasing their margins. Furthermore, investors can renovate specific characteristics related to the independent variables to maximize the value of the house. 
+
+### Key takeaways
+* There is a **significant** relationship between the independent variables (LotArea, OverallQual, OverallCond, InSF, OutSF, KitchenQual), and the dependent variable (SalePrice).
+* Using the model, one can reasonably predict the selling price of a house. This will help with accuracy; individuals can make educated offers on homes.
+
+### Limitations
+The first limitation is that this data set only involves houses in the Ames housing market. Generalizing this data set too broadly might be innappropriate; different markets might have different significant variables. The second involves the subjective nature of KitchenQual, OverallQual, and OverallCond. There is probably not a standardized way to differentiate a house with an OverallQual of 5 vs. one with a 6. 
+
+**Improving the Model** 
+When it comes to improving the model, I would have liked to have other economic/financial data about the market. This could include the amount of days that a typical house sat on sale for, average housing sale price for a certain period of time, or a house’s number of owners. This would help segment the data better and help account for economic context
+
+**Looking Forward**
+The r2 value of ~78% leaves 22% of variation that is unexplained. That is almost a quarter of the data that has a missing piece; this model is far from perfect. The question of causality is still open; causality can be found by a long series of predictive models or by a closed environment experiment. After one simple data model, it is not appropriate to say the independent variables *directly cause* SalePrice to increase.
+
+I recommend a few options to build upon our work:
+
+1. Use data from surrounding markets to determine if the Ames data model holds
+2. Continue finding variables to optimize variation explanation while not clouding the data model.
+
+
+
+
+
+
+
+
+
+
